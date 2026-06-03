@@ -3,7 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x070b12);
-scene.fog = new THREE.Fog(0x070b12, 40, 220);
+scene.fog = new THREE.FogExp2(0x070b12, 0.02);
 
 const camera = new THREE.PerspectiveCamera(
   60,
@@ -38,6 +38,25 @@ const controls =
   );
 
 controls.enableDamping = true;
+
+const fogSettings = {
+  color: '#070b12',
+  density: 0.02
+};
+
+function updateFog() {
+  scene.fog.color.set(fogSettings.color);
+  scene.background.set(fogSettings.color);
+  scene.fog.density = fogSettings.density;
+}
+
+const gui = new dat.GUI({ width: 310 });
+const fogFolder = gui.addFolder('Fog');
+fogFolder.addColor(fogSettings, 'color').name('Color').onChange(updateFog);
+fogFolder.add(fogSettings, 'density', 0, 0.2, 0.005).name('Densidad').onChange(updateFog);
+fogFolder.open();
+
+updateFog();
 
 // ILUMINACIÓN
 
@@ -263,6 +282,9 @@ function createPoliceCar(x, z) {
       wheel.rotation.z =
         Math.PI / 2;
 
+        wheel.rotation.y =
+        Math.PI / 2;
+
       wheel.position.set(
         a,
         -0.5,
@@ -455,10 +477,10 @@ const detective =
   );
 
 // ==========================================
-// CINTA POLICIAL
+// CINTA PAPELOIDE
 // ==========================================
 
-function createPoliceTape(
+function createPaperTape(
   x1,
   z1,
   x2,
@@ -476,10 +498,16 @@ function createPoliceTape(
       new THREE.BoxGeometry(
         length,
         0.12,
-        0.05
+        0.05,
+        70,
+        1,
+        1
       ),
       new THREE.MeshStandardMaterial({
-        color: 0xffff00
+        color: 0xffee33,
+        roughness: 0.4,
+        metalness: 0.05,
+        side: THREE.DoubleSide
       })
     );
 
@@ -495,13 +523,16 @@ function createPoliceTape(
       x2 - x1
     );
 
+  tape.castShadow = true;
+  tape.receiveShadow = true;
+
   scene.add(tape);
 
   return tape;
 }
 
 const tape1 =
-  createPoliceTape(
+  createPaperTape(
     -15,
     -8,
     15,
@@ -509,7 +540,7 @@ const tape1 =
   );
 
 const tape2 =
-  createPoliceTape(
+  createPaperTape(
     -15,
     8,
     15,
@@ -583,6 +614,37 @@ for (const offset of evidenceOffsets) {
 
   scene.add(marker);
 }
+
+// ==========================================
+// CINTA PAPELOIDE
+// ==========================================
+
+const paperCubeGeometry = new THREE.BoxGeometry(
+  30,
+  0.18,
+  0.06,
+  70,
+  16,
+  16
+);
+const paperCubeMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffee33,
+  roughness: 0.4,
+  metalness: 0.05,
+  side: THREE.DoubleSide
+});
+
+const paperCube = new THREE.Mesh(
+  paperCubeGeometry,
+  paperCubeMaterial
+);
+paperCube.position.set(-5, 2.1, -4);
+paperCube.rotation.y = Math.PI / 12;
+paperCube.castShadow = true;
+paperCube.receiveShadow = true;
+scene.add(paperCube);
+
+const paperCubeOriginalPositions = paperCubeGeometry.attributes.position.array.slice();
 
 // ==========================================
 // SILUETA FORENSE
@@ -760,6 +822,39 @@ function animate() {
 
   const t =
     clock.getElapsedTime();
+
+  const paperPositions =
+    paperCube.geometry.attributes.position;
+
+  for (
+    let i = 0;
+    i < paperPositions.count;
+    i++
+  ) {
+    const ix = i * 3;
+    const oy = paperCubeOriginalPositions[ix + 1];
+    const oz = paperCubeOriginalPositions[ix + 2];
+    const ox = paperCubeOriginalPositions[ix];
+
+    paperPositions.array[ix] =
+      ox +
+      Math.sin(
+        t * 2.2 + oy * 3 + oz * 4
+      ) * 0.08;
+    paperPositions.array[ix + 1] =
+      oy +
+      Math.sin(
+        t * 1.7 + ox * 2.5 + oz * 3
+      ) * 0.06;
+    paperPositions.array[ix + 2] =
+      oz +
+      Math.sin(
+        t * 2.6 + ox * 3 + oy * 2
+      ) * 0.08;
+  }
+
+  paperPositions.needsUpdate = true;
+  paperCube.geometry.computeVertexNormals();
 
   // Luces patrulla A
 

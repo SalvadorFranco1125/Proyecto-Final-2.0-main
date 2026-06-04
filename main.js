@@ -58,6 +58,126 @@ fogFolder.open();
 
 updateFog();
 
+const audioTrackData = [
+  { label: 'Ambiente de ciudad', src: 'Sonidos/audio/city_ambience.wav' },
+  { label: 'Sirena policial', src: 'Sonidos/audio/police_siren.wav' },
+  { label: 'Lluvia realista', src: 'Sonidos/audio/storm_rain_realistic.wav' },
+  { label: 'Trueno', src: 'Sonidos/audio/thunder.wav' }
+];
+
+const audioTracks = audioTrackData.map(track => {
+  const audio = new Audio(track.src);
+  audio.loop = true;
+  audio.preload = 'auto';
+  audio.volume = 0.7;
+  return { ...track, audio, enabled: true };
+});
+
+const trackList = document.getElementById('audio-track-list');
+const playPauseButton = document.getElementById('play-pause');
+const muteButton = document.getElementById('mute-button');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeValue = document.getElementById('volume-value');
+const audioStatus = document.getElementById('audio-status');
+
+let isPlayingAll = false;
+let isMuted = false;
+
+function updateAudioStatus() {
+  const playingCount = audioTracks.filter(track => !track.audio.paused && track.enabled).length;
+  if (!playPauseButton || !muteButton || !audioStatus || !volumeValue) {
+    return;
+  }
+  playPauseButton.textContent = isPlayingAll ? 'Pausar' : 'Reproducir';
+  muteButton.textContent = isMuted ? 'Activar sonido' : 'Silenciar';
+  audioStatus.textContent = playingCount > 0 ? `Reproduciendo ${playingCount} pista(s)` : 'Pausado';
+  volumeValue.textContent = `${Math.round(audioTracks[0].audio.volume * 100)}%`;
+}
+
+async function playAll() {
+  const promises = audioTracks.map(async track => {
+    if (track.enabled) {
+      try {
+        await track.audio.play();
+      } catch (error) {
+        // El navegador puede requerir interacción del usuario.
+      }
+    }
+  });
+  await Promise.all(promises);
+  isPlayingAll = true;
+  updateAudioStatus();
+}
+
+function pauseAll() {
+  audioTracks.forEach(track => track.audio.pause());
+  isPlayingAll = false;
+  updateAudioStatus();
+}
+
+function setAllVolume(value) {
+  audioTracks.forEach(track => {
+    track.audio.volume = value;
+  });
+}
+
+function setAllMuted(value) {
+  audioTracks.forEach(track => {
+    track.audio.muted = value;
+  });
+}
+
+if (trackList) {
+  trackList.querySelectorAll('input[type="checkbox"]').forEach((checkbox, index) => {
+    checkbox.checked = true;
+    checkbox.addEventListener('change', () => {
+      audioTracks[index].enabled = checkbox.checked;
+      if (!checkbox.checked) {
+        audioTracks[index].audio.pause();
+      } else if (isPlayingAll) {
+        audioTracks[index].audio.play().catch(() => {
+          // no-op
+        });
+      }
+      updateAudioStatus();
+    });
+  });
+}
+
+if (playPauseButton) {
+  playPauseButton.addEventListener('click', async () => {
+    if (!isPlayingAll) {
+      await playAll();
+    } else {
+      pauseAll();
+    }
+  });
+}
+
+if (muteButton) {
+  muteButton.addEventListener('click', () => {
+    isMuted = !isMuted;
+    setAllMuted(isMuted);
+    updateAudioStatus();
+  });
+}
+
+if (volumeSlider) {
+  volumeSlider.addEventListener('input', () => {
+    const volume = Number(volumeSlider.value);
+    setAllVolume(volume);
+    if (volume === 0) {
+      isMuted = true;
+    } else {
+      isMuted = false;
+    }
+    setAllMuted(isMuted);
+    updateAudioStatus();
+  });
+}
+
+updateAudioStatus();
+
 // ILUMINACIÓN
 
 const ambient =
@@ -361,15 +481,14 @@ function createPerson(
   hatColor = null
 ) {
 
-  const person =
-    new THREE.Group();
+  const person = new THREE.Group();
 
-  const body =
+  const torso =
     new THREE.Mesh(
       new THREE.CylinderGeometry(
         0.45,
         0.55,
-        detective ? 2.2 : 1.8,
+        1.1,
         8
       ),
       new THREE.MeshStandardMaterial({
@@ -379,7 +498,9 @@ function createPerson(
       })
     );
 
-  body.castShadow = true;
+  torso.castShadow = true;
+  torso.position.y = 1.0;
+  person.add(torso);
 
   const head =
     new THREE.Mesh(
@@ -393,11 +514,69 @@ function createPerson(
       })
     );
 
-  head.position.y = 1.3;
+  head.position.set(0, 1.8, 0);
   head.castShadow = true;
-
-  person.add(body);
   person.add(head);
+
+  const leftArm =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.22,
+        0.9,
+        0.22
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x0b2d6b
+      })
+    );
+  leftArm.position.set(-0.6, 1.0, 0);
+  leftArm.castShadow = true;
+  person.add(leftArm);
+
+  const rightArm =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.22,
+        0.9,
+        0.22
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x0b2d6b
+      })
+    );
+  rightArm.position.set(0.6, 1.0, 0);
+  rightArm.castShadow = true;
+  person.add(rightArm);
+
+  const leftLeg =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.22,
+        0.9,
+        0.22
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x111111
+      })
+    );
+  leftLeg.position.set(-0.18, 0.3, 0);
+  leftLeg.castShadow = true;
+  person.add(leftLeg);
+
+  const rightLeg =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.22,
+        0.9,
+        0.22
+      ),
+      new THREE.MeshStandardMaterial({
+        color: 0x111111
+      })
+    );
+  rightLeg.position.set(0.18, 0.3, 0);
+  rightLeg.castShadow = true;
+  person.add(rightLeg);
 
   const useHat = detective || hatColor !== null;
   if (useHat) {
@@ -432,19 +611,27 @@ function createPerson(
         hatMaterial
       );
 
-    hatTop.position.y = 1.75;
-    hatBrim.position.y = 1.66;
+    hatTop.position.y = 1.95;
+    hatBrim.position.y = 1.85;
 
     const hat = new THREE.Group();
     hat.add(hatTop);
     hat.add(hatBrim);
-
     person.add(hat);
   }
 
+  person.userData = {
+    head,
+    torso,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg
+  };
+
   person.position.set(
     x,
-    1,
+    0,
     z
   );
 
@@ -814,6 +1001,73 @@ const clock =
 // ANIMACIÓN
 // ==========================================
 
+function breathe(person, t) {
+  const b = Math.sin(t * 2) * 0.015;
+  person.scale.y = 1 + b;
+  person.scale.x = 1 - b * 0.2;
+  person.scale.z = 1 - b * 0.2;
+}
+
+function animateOfficer1(p, t) {
+  const u = p.userData;
+
+  u.head.rotation.x = 0.4;
+  u.head.rotation.y = Math.sin(t * 0.5) * 0.2;
+
+  u.rightArm.rotation.x = -1.4 + Math.sin(t * 10) * 0.05;
+  u.rightArm.rotation.z = 0.2;
+
+  u.leftArm.rotation.x = -0.6;
+
+  u.torso.rotation.z = Math.sin(t * 0.6) * 0.03;
+
+  p.position.x = -3 + Math.sin(t * 1.2) * 0.05;
+}
+
+function animateOfficer2(p, t) {
+  const u = p.userData;
+
+  u.head.rotation.y = Math.sin(t * 0.8) * 1.0;
+  u.torso.rotation.y = Math.sin(t * 0.8) * 0.25;
+
+  u.leftArm.rotation.x = -0.3;
+  u.rightArm.rotation.x = -0.3;
+
+  u.torso.position.y = 1.7 + Math.sin(t * 2) * 0.01;
+  p.position.x = 3 + Math.sin(t * 1.5) * 0.08;
+}
+
+function animateDetective(p, t) {
+  const u = p.userData;
+
+  p.position.x = Math.sin(t * 0.25) * 2;
+  p.position.z = -1 + Math.cos(t * 0.25) * 1.2;
+
+  p.lookAt(0, 0, -1);
+
+  u.torso.rotation.x = 0.15;
+
+  u.rightArm.rotation.x = -1.2 + Math.sin(t * 2) * 0.03;
+  u.leftArm.rotation.x = -0.8;
+
+  u.head.rotation.y = Math.sin(t * 0.4) * 0.2;
+  u.head.rotation.x = 0.1 + Math.sin(t * 0.6) * 0.05;
+}
+
+function rainReaction(person, t) {
+  const wet = 0.02 + Math.sin(t * 3) * 0.01;
+  person.traverse(o => {
+    if (o.isMesh && o.material) {
+      o.material.roughness =
+        THREE.MathUtils.lerp(
+          o.material.roughness,
+          0.85,
+          0.01
+        );
+    }
+  });
+}
+
 function animate() {
 
   requestAnimationFrame(
@@ -822,6 +1076,18 @@ function animate() {
 
   const t =
     clock.getElapsedTime();
+
+  breathe(officer1, t);
+  breathe(officer2, t);
+  breathe(detective, t);
+
+  animateOfficer1(officer1, t);
+  animateOfficer2(officer2, t);
+  animateDetective(detective, t);
+
+  rainReaction(officer1, t);
+  rainReaction(officer2, t);
+  rainReaction(detective, t);
 
   const paperPositions =
     paperCube.geometry.attributes.position;
